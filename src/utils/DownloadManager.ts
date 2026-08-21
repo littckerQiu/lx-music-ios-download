@@ -3,7 +3,7 @@
  * 复用播放器的链接获取逻辑，顺序下载避免限流
  */
 import RNFS from 'react-native-fs'
-import { getMusicUrlInfo } from '@/core/music/online'
+import { getMusicUrlInfo, getLyricInfo, getPicUrl } from '@/core/music/online'
 import { requestMsg } from '@/utils/message'
 
 export type DownloadStatus = 'waiting' | 'preparing' | 'downloading' | 'paused' | 'completed' | 'failed' | 'cancelled'
@@ -64,10 +64,10 @@ const sanitizeFilename = (name: string) => {
   return name.replace(/[\\/:*?"<>|]/g, '_').slice(0, 100)
 }
 
-// 完全复刻播放器的 getMusicPlayUrl 逻辑
+// 完全复刻播放器的 getMusicPlayUrl 逻辑，直接用 isRefresh=true 确保获取最新链接
 const getMusicDownloadUrl = async(
   musicInfo: LX.Music.MusicInfoOnline,
-  isRefresh = false,
+  isRefresh = true,
   isRetryed = false
 ): Promise<{ url: string; quality: LX.Quality | null }> => {
   const toggleMusicInfo = musicInfo.meta.toggleMusicInfo
@@ -111,7 +111,7 @@ const getMusicDownloadUrl = async(
       return getMusicDownloadUrl(musicInfo, isRefresh, true)
     }
 
-    // 第二次失败，如果不是刷新模式，用 isRefresh=true 再试一次（刷新过期url）
+    // 第二次失败，如果不是刷新模式，用 isRefresh=true 再试一次
     if (!isRefresh) {
       return getMusicDownloadUrl(musicInfo, true, true)
     }
@@ -233,6 +233,37 @@ const startDownload = async (task: DownloadTask) => {
     }
 
     if (result2.statusCode === 200 || result2.statusCode === 206) {
+      // 下载完成后保存歌词和封面
+      const basePath = localPath.replace(/\.[^.]+$/, '')
+
+      // 保存歌词
+      try {
+        const lyricInfo = await getLyricInfo({ musicInfo: task.musicInfo, isRefresh: true })
+        if (lyricInfo?.lyric) {
+          await RNFS.writeFile(basePath + '.lrc', lyricInfo.lyric, 'utf8')
+        }
+      } catch (e) {
+        console.log('download lyric failed:', e)
+      }
+
+      // 保存封面
+      try {
+        const picUrl = await getPicUrl({ musicInfo: task.musicInfo, isRefresh: true })
+        if (picUrl && picUrl.startsWith('http')) {
+          const picExt = picUrl.includes('.png') ? '.png' : '.jpg'
+          const picJob = RNFS.downloadFile({
+            fromUrl: picUrl,
+            toFile: basePath + picExt,
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15',
+            },
+          })
+          await picJob.promise
+        }
+      } catch (e) {
+        console.log('download pic failed:', e)
+      }
+
       updateTask(task.id, {
         status: 'completed',
         progress: 1,
