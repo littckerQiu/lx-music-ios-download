@@ -16,6 +16,8 @@ export interface MultipleModeBarProps {
   onSwitchMode: (mode: SelectMode) => void
   onSelectAll: (isAll: boolean) => void
   onExitSelectMode: () => void
+  onDownload: () => void
+  selectedCount: number
 }
 export interface MultipleModeBarType {
   show: () => void
@@ -24,7 +26,7 @@ export interface MultipleModeBarType {
   exitSelectMode: () => void
 }
 
-export default forwardRef<MultipleModeBarType, MultipleModeBarProps>(({ onSelectAll, onSwitchMode, onExitSelectMode }, ref) => {
+export default forwardRef<MultipleModeBarType, MultipleModeBarProps>(({ onSelectAll, onSwitchMode, onExitSelectMode, onDownload, selectedCount }, ref) => {
   // const isGetDetailFailedRef = useRef(false)
   const [visible, setVisible] = useState(false)
   const [animatePlayed, setAnimatPlayed] = useState(true)
@@ -125,12 +127,15 @@ export default forwardRef<MultipleModeBarType, MultipleModeBarProps>(({ onSelect
         <TouchableOpacity onPress={handleSelectAll} style={styles.btn}>
           <Text color={theme['c-button-font']}>{global.i18n.t(isSelectAll ? 'list_select_unall' : 'list_select_all')}</Text>
         </TouchableOpacity>
+        <TouchableOpacity onPress={onDownload} style={[styles.btn, selectedCount === 0 && { opacity: 0.4 }]} disabled={selectedCount === 0}>
+          <Text color={theme['c-button-font']}>下载({selectedCount})</Text>
+        </TouchableOpacity>
         <TouchableOpacity onPress={onExitSelectMode} style={styles.btn}>
           <Text color={theme['c-button-font']}>{global.i18n.t('list_select_cancel')}</Text>
         </TouchableOpacity>
       </Animated.View>
     )
-  }, [animaStyle, selectMode, theme, handleSelectAll, isSelectAll, onExitSelectMode, onSwitchMode])
+  }, [animaStyle, selectMode, theme, handleSelectAll, isSelectAll, onExitSelectMode, onSwitchMode, onDownload, selectedCount])
 
   return !visible && animatePlayed ? null : component
 })

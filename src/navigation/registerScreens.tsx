@@ -7,6 +7,7 @@ import {
   PlayDetail,
   SonglistDetail,
   Comment,
+  Download,
   // Setting,
 } from '@/screens'
 import { Provider } from '@/store/Provider'
@@ -16,6 +17,7 @@ import {
   PLAY_DETAIL_SCREEN,
   SONGLIST_DETAIL_SCREEN,
   COMMENT_SCREEN,
+  DOWNLOAD_SCREEN,
   VERSION_MODAL,
   PACT_MODAL,
   SYNC_MODE_MODAL,
@@ -44,6 +46,7 @@ export default () => {
   Navigation.registerComponent(PLAY_DETAIL_SCREEN, () => WrappedComponent(PlayDetail))
   Navigation.registerComponent(SONGLIST_DETAIL_SCREEN, () => WrappedComponent(SonglistDetail))
   Navigation.registerComponent(COMMENT_SCREEN, () => WrappedComponent(Comment))
+  Navigation.registerComponent(DOWNLOAD_SCREEN, () => WrappedComponent(Download))
   Navigation.registerComponent(VERSION_MODAL, () => WrappedComponent(VersionModal))
   Navigation.registerComponent(PACT_MODAL, () => WrappedComponent(PactModal))
   Navigation.registerComponent(SYNC_MODE_MODAL, () => WrappedComponent(SyncModeModal))

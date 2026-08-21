@@ -6,6 +6,7 @@ import {
   PLAY_DETAIL_SCREEN,
   SONGLIST_DETAIL_SCREEN,
   COMMENT_SCREEN,
+  DOWNLOAD_SCREEN,
   // SETTING_SCREEN,
 } from './screenNames'
 
@@ -357,6 +358,54 @@ export function pushCommentScreen(componentId: string) {
           navigationBar: {
             // visible: false,
             backgroundColor: theme['c-content-background'],
+          },
+          layout: {
+            componentBackgroundColor: theme['c-content-background'],
+          },
+          animations: {
+            push: {
+              content: {
+                translationX: {
+                  from: windowSizeTools.getSize().width,
+                  to: 0,
+                  duration: 300,
+                },
+              },
+            },
+            pop: {
+              content: {
+                translationX: {
+                  from: 0,
+                  to: windowSizeTools.getSize().width,
+                  duration: 300,
+                },
+              },
+            },
+          },
+        },
+      },
+    })
+  })
+}
+
+
+export function pushDownloadScreen(componentId: string) {
+  requestAnimationFrame(() => {
+    const theme = themeState.theme
+
+    void Navigation.push(componentId, {
+      component: {
+        name: DOWNLOAD_SCREEN,
+        options: {
+          topBar: {
+            visible: true,
+            title: { text: '下载管理' },
+          },
+          statusBar: {
+            drawBehind: true,
+            visible: true,
+            style: getStatusBarStyle(theme.isDark),
+            backgroundColor: 'transparent',
           },
           layout: {
             componentBackgroundColor: theme['c-content-background'],

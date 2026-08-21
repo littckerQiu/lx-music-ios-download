@@ -8,6 +8,8 @@ import ListMusicAdd, { type MusicAddModalType as ListMusicAddType } from '@/comp
 import MultipleModeBar, { type MultipleModeBarType, type SelectMode } from './MultipleModeBar'
 import { handleDislikeMusic, handlePlay, handlePlayLater, handleShare, handleShowMusicSourceDetail } from './listAction'
 import { createStyle } from '@/utils/tools'
+import { Alert } from 'react-native'
+import DownloadManager from '@/utils/DownloadManager'
 
 export interface OnlineListProps {
   onRefresh: ListProps['onRefresh']
@@ -61,6 +63,20 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
     multipleModeBarRef.current?.exitSelectMode()
     listRef.current?.setIsMultiSelectMode(false)
   }
+  const handleDownload = (info: SelectInfo) => {
+    DownloadManager.addDownload(info.musicInfo)
+    Alert.alert('下载', `已添加「${info.musicInfo.name}」到下载队列`)
+  }
+  const handleMultiDownload = () => {
+    const selectedList = listRef.current?.getSelectedList() || []
+    if (selectedList.length === 0) return
+    DownloadManager.addDownloads(selectedList)
+    Alert.alert('下载', `已添加 ${selectedList.length} 首歌曲到下载队列`)
+    hancelExitSelect()
+  }
+  const getSelectedCount = () => {
+    return listRef.current?.getSelectedList().length || 0
+  }
 
   const showMenu = (musicInfo: LX.Music.MusicInfoOnline, index: number, position: Position) => {
     listMenuRef.current?.show({
@@ -99,6 +115,8 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
           onSwitchMode={hancelSwitchSelectMode}
           onSelectAll={isAll => listRef.current?.selectAll(isAll)}
           onExitSelectMode={hancelExitSelect}
+          onDownload={handleMultiDownload}
+          selectedCount={getSelectedCount()}
         />
       </View>
       <ListMusicAdd ref={listMusicAddRef} onAdded={() => { hancelExitSelect() }} />
@@ -111,6 +129,7 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
         onAdd={handleAddMusic}
         onMusicSourceDetail={info => { void handleShowMusicSourceDetail(info.musicInfo) }}
         onDislikeMusic={info => { void handleDislikeMusic(info.musicInfo) }}
+        onDownload={handleDownload}
       />
       {/* <LoadingMask ref={loadingMaskRef} /> */}
     </View>
