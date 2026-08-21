@@ -223,7 +223,7 @@ const startDownload = async (task: DownloadTask) => {
 
     await ensureDir()
 
-    const artist = task.musicInfo.meta.author || '未知艺术家'
+    const artist = task.musicInfo.singer || '未知艺术家'
     const title = task.musicInfo.name || '未知歌曲'
     const ext = result.url.includes('.flac') ? 'flac' : result.url.includes('.ape') ? 'ape' : result.url.includes('.m4a') ? 'm4a' : 'mp3'
     const filename = sanitizeFilename(`${artist} - ${title}.${ext}`)
