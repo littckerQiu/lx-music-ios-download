@@ -1,4 +1,4 @@
-import { useRef, forwardRef, useImperativeHandle } from 'react'
+import { useRef, useState, forwardRef, useImperativeHandle } from 'react'
 import { View } from 'react-native'
 // import LoadingMask, { LoadingMaskType } from '@/components/common/LoadingMask'
 import List, { type ListProps, type ListType, type Status, type RowInfoType } from './List'
@@ -39,6 +39,7 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
   const listMusicAddRef = useRef<ListMusicAddType>(null)
   const listMusicMultiAddRef = useRef<ListAddMultiType>(null)
   const listMenuRef = useRef<ListMenuType>(null)
+  const [selectedCount, setSelectedCount] = useState(0)
   // const loadingMaskRef = useRef<LoadingMaskType>(null)
 
   useImperativeHandle(ref, () => ({
@@ -62,6 +63,7 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
   const hancelExitSelect = () => {
     multipleModeBarRef.current?.exitSelectMode()
     listRef.current?.setIsMultiSelectMode(false)
+    setSelectedCount(0)
   }
   const handleDownload = (info: SelectInfo) => {
     DownloadManager.addDownload(info.musicInfo)
@@ -73,9 +75,6 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
     DownloadManager.addDownloads(selectedList)
     Alert.alert('下载', `已添加 ${selectedList.length} 首歌曲到下载队列`)
     hancelExitSelect()
-  }
-  const getSelectedCount = () => {
-    return listRef.current?.getSelectedList().length || 0
   }
 
   const showMenu = (musicInfo: LX.Music.MusicInfoOnline, index: number, position: Position) => {
@@ -102,6 +101,7 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
           onShowMenu={showMenu}
           onMuiltSelectMode={hancelMultiSelect}
           onSelectAll={isAll => multipleModeBarRef.current?.setIsSelectAll(isAll)}
+          onSelectedChange={list => setSelectedCount(list.length)}
           onRefresh={onRefresh}
           onLoadMore={onLoadMore}
           onPlayList={onPlayList}
@@ -116,7 +116,7 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
           onSelectAll={isAll => listRef.current?.selectAll(isAll)}
           onExitSelectMode={hancelExitSelect}
           onDownload={handleMultiDownload}
-          selectedCount={getSelectedCount()}
+          selectedCount={selectedCount}
         />
       </View>
       <ListMusicAdd ref={listMusicAddRef} onAdded={() => { hancelExitSelect() }} />

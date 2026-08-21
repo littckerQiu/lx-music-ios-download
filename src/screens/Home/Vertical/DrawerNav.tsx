@@ -5,7 +5,7 @@ import { useNavActiveId, useStatusbarHeight } from '@/store/common/hook'
 import { useTheme } from '@/store/theme/hook'
 import { Icon } from '@/components/common/Icon'
 import { confirmDialog, createStyle, exitApp as backHome } from '@/utils/tools'
-import { NAV_MENUS } from '@/config/constant'
+import { NAV_MENUS, COMPONENT_IDS } from '@/config/constant'
 import type { InitState } from '@/store/common/state'
 import { navigations } from '@/navigation'
 import commonState from '@/store/common/state'
@@ -120,7 +120,7 @@ export default memo(() => {
 
     if (id === 'download') {
       global.app_event.changeMenuVisible(false)
-      const componentId = commonState.componentIds[Object.keys(commonState.componentIds)[0]]
+      const componentId = commonState.componentIds.home
       if (componentId) navigations.pushDownloadScreen(componentId)
       return
     }

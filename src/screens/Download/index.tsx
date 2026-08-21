@@ -1,10 +1,18 @@
-import React, { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback, useMemo } from 'react'
 import { View, FlatList, TouchableOpacity, Alert, StyleSheet } from 'react-native'
 import Text from '@/components/common/Text'
+import Button from '@/components/common/Button'
 import { useTheme } from '@/store/theme/hook'
 import DownloadManager, { type DownloadTask } from '@/utils/DownloadManager'
-import { Navigation } from 'react-native-navigation'
+import PageContent from '@/components/PageContent'
+import StatusBar from '@/components/common/StatusBar'
+import PlayerBar from '@/components/player/PlayerBar'
+import { pop } from '@/navigation'
+import commonState from '@/store/common/state'
 import { createStyle } from '@/utils/tools'
+import { useI18n } from '@/lang'
+import { COMPONENT_IDS } from '@/config/constant'
+import { setComponentId } from '@/core/common'
 
 interface Props {
   componentId: string
@@ -12,16 +20,18 @@ interface Props {
 
 const DownloadScreen: React.FC<Props> = ({ componentId }) => {
   const theme = useTheme()
+  const t = useI18n()
   const [tasks, setTasks] = useState<DownloadTask[]>([])
   const [filter, setFilter] = useState<'all' | 'downloading' | 'completed' | 'failed'>('all')
 
   useEffect(() => {
+    setComponentId(COMPONENT_IDS.download, componentId)
     const unsub = DownloadManager.subscribe(setTasks)
     setTasks(DownloadManager.getTasks())
     return () => { unsub() }
-  }, [])
+  }, [componentId])
 
-  const filteredTasks = useCallback(() => {
+  const filteredTasks = useMemo(() => {
     switch (filter) {
       case 'downloading':
         return tasks.filter(t => t.status === 'downloading' || t.status === 'preparing' || t.status === 'waiting')
@@ -78,6 +88,10 @@ const DownloadScreen: React.FC<Props> = ({ componentId }) => {
     )
   }
 
+  const handleBack = () => {
+    void pop(componentId)
+  }
+
   const renderItem = ({ item }: { item: DownloadTask }) => (
     <View style={[styles.taskItem, { backgroundColor: theme['c-content-background'] }]}>
       <View style={styles.taskInfo}>
@@ -124,24 +138,43 @@ const DownloadScreen: React.FC<Props> = ({ componentId }) => {
     failed: tasks.filter(t => t.status === 'failed').length,
   }
 
+  const filters: { key: typeof filter; label: string; count: number }[] = [
+    { key: 'all', label: '全部', count: stats.all },
+    { key: 'downloading', label: '下载中', count: stats.downloading },
+    { key: 'completed', label: '已完成', count: stats.completed },
+    { key: 'failed', label: '失败', count: stats.failed },
+  ]
+
   return (
-    <View style={[styles.container, { backgroundColor: theme['c-background'] }]}>
+    <PageContent>
+      <StatusBar />
+      {/* 顶栏 */}
+      <View style={[styles.header, { borderBottomColor: theme['c-border-background'] }]}>
+        <Button onPress={handleBack} style={styles.headerBtn}>
+          <Text color={theme['c-button-font']}>{t('back')}</Text>
+        </Button>
+        <Text style={styles.headerTitle} color={theme['c-text']}>下载管理</Text>
+        <View style={styles.headerBtn} />
+      </View>
+
+      {/* 筛选栏 */}
       <View style={styles.filterBar}>
-        {(['all', 'downloading', 'completed', 'failed'] as const).map(f => (
+        {filters.map(f => (
           <TouchableOpacity
-            key={f}
-            onPress={() => setFilter(f)}
-            style={[styles.filterBtn, filter === f && { backgroundColor: theme['c-primary'] }]}
+            key={f.key}
+            onPress={() => setFilter(f.key)}
+            style={[styles.filterBtn, filter === f.key && { backgroundColor: theme['c-primary'] }]}
           >
-            <Text color={filter === f ? '#fff' : theme['c-text']}>
-              {f === 'all' ? `全部(${stats.all})` : f === 'downloading' ? `下载中(${stats.downloading})` : f === 'completed' ? `已完成(${stats.completed})` : `失败(${stats.failed})`}
+            <Text color={filter === f.key ? '#fff' : theme['c-text']}>
+              {f.label}({f.count})
             </Text>
           </TouchableOpacity>
         ))}
       </View>
 
+      {/* 任务列表 */}
       <FlatList
-        data={filteredTasks()}
+        data={filteredTasks}
         renderItem={renderItem}
         keyExtractor={item => item.id}
         contentContainerStyle={styles.listContent}
@@ -152,7 +185,8 @@ const DownloadScreen: React.FC<Props> = ({ componentId }) => {
         }
       />
 
-      <View style={styles.bottomBar}>
+      {/* 底部操作栏 */}
+      <View style={[styles.bottomBar, { borderTopColor: theme['c-border-background'] }]}>
         <TouchableOpacity onPress={() => DownloadManager.pauseAll()} style={styles.bottomBtn}>
           <Text color={theme['c-primary']}>全部暂停</Text>
         </TouchableOpacity>
@@ -171,13 +205,30 @@ const DownloadScreen: React.FC<Props> = ({ componentId }) => {
           <Text color={theme['c-primary']}>清除记录</Text>
         </TouchableOpacity>
       </View>
-    </View>
+
+      <PlayerBar />
+    </PageContent>
   )
 }
 
 const styles = createStyle({
-  container: {
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  headerBtn: {
+    width: 60,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  headerTitle: {
     flex: 1,
+    textAlign: 'center',
+    fontSize: 17,
+    fontWeight: '500',
   },
   filterBar: {
     flexDirection: 'row',
@@ -192,7 +243,8 @@ const styles = createStyle({
   },
   listContent: {
     paddingHorizontal: 12,
-    paddingBottom: 60,
+    paddingBottom: 20,
+    flexGrow: 1,
   },
   taskItem: {
     flexDirection: 'row',
@@ -239,13 +291,8 @@ const styles = createStyle({
     paddingVertical: 60,
   },
   bottomBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
     flexDirection: 'row',
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(0,0,0,0.1)',
   },
   bottomBtn: {
     flex: 1,

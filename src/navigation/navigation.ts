@@ -398,8 +398,9 @@ export function pushDownloadScreen(componentId: string) {
         name: DOWNLOAD_SCREEN,
         options: {
           topBar: {
-            visible: true,
-            title: { text: '下载管理' },
+            visible: false,
+            height: 0,
+            drawBehind: false,
           },
           statusBar: {
             drawBehind: true,

@@ -24,6 +24,7 @@ export interface ListProps {
   onShowMenu: (musicInfo: LX.Music.MusicInfoOnline, index: number, position: Position) => void
   onMuiltSelectMode: () => void
   onSelectAll: (isAll: boolean) => void
+  onSelectedChange?: (selectedList: LX.Music.MusicInfoOnline[]) => void
   onRefresh: () => void
   onLoadMore: () => void
   onPlayList?: (index: number) => void
@@ -48,6 +49,7 @@ const List = forwardRef<ListType, ListProps>(({
   onShowMenu,
   onMuiltSelectMode,
   onSelectAll,
+  onSelectedChange,
   onRefresh,
   onLoadMore,
   onPlayList,
@@ -118,6 +120,7 @@ const List = forwardRef<ListType, ListProps>(({
     else if (selectedListRef.current.length == currentList.length) onSelectAll(false)
     selectedListRef.current = newList
     setSelectedList(newList)
+    onSelectedChange?.(newList)
   }
   const handleSelect = (item: LX.Music.MusicInfoOnline, pressIndex: number) => {
     let newList: LX.Music.MusicInfoOnline[]
