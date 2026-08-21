@@ -1,5 +1,4 @@
 import { Platform, SafeAreaView, StyleSheet, View } from 'react-native'
-import { BlurView } from '@react-native-community/blur'
 import { useTheme } from '@/store/theme/hook'
 import ImageBackground from '@/components/common/ImageBackground'
 import { useWindowSize } from '@/utils/hooks'
@@ -32,25 +31,15 @@ export default ({ children }: Props) => {
         source={theme['bg-image']}
         resizeMode="cover"
       />
-      {Platform.OS === 'ios' ? (
-        <BlurView
-          style={StyleSheet.absoluteFill}
-          blurType="systemMaterial"
-          blurAmount={35}
-          reducedTransparencyFallbackColor={theme['c-main-background']}
-        />
-      ) : (
-        <View
-          pointerEvents="none"
-          style={[
-            StyleSheet.absoluteFill,
-            {
-              backgroundColor: theme['c-main-background'],
-              opacity: 0.7,
-            },
-          ]}
-        />
-      )}
+      <View
+        pointerEvents="none"
+        style={[
+          StyleSheet.absoluteFill,
+          {
+            backgroundColor: theme['c-main-background'],
+          },
+        ]}
+      />
       <ContentContainer>
         <View style={{ flex: 1, flexDirection: 'column' }}>
           {children}
@@ -66,26 +55,18 @@ export default ({ children }: Props) => {
           style={{ position: 'absolute', left: 0, top: 0, height: windowSize.height, width: windowSize.width, backgroundColor: theme['c-content-background'] }}
           source={{ uri: pic!, headers: defaultHeaders }}
           resizeMode="cover"
+          blurRadius={BLUR_RADIUS}
         />
-        {Platform.OS === 'ios' ? (
-          <BlurView
-            style={StyleSheet.absoluteFill}
-            blurType="systemMaterial"
-            blurAmount={30}
-            reducedTransparencyFallbackColor={theme['c-content-background']}
-          />
-        ) : (
-          <View
-            pointerEvents="none"
-            style={[
-              StyleSheet.absoluteFill,
-              {
-                backgroundColor: theme['c-content-background'],
-                opacity: 0.6,
-              },
-            ]}
-          />
-        )}
+        <View
+          pointerEvents="none"
+          style={[
+            StyleSheet.absoluteFill,
+            {
+              backgroundColor: theme['c-content-background'],
+              opacity: 0.76,
+            },
+          ]}
+        />
         <ContentContainer>
           <View style={{ flex: 1, flexDirection: 'column' }}>
             {children}
