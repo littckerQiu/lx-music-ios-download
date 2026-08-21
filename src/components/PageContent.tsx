@@ -1,5 +1,5 @@
-// import { useEffect, useState } from 'react'
 import { Platform, SafeAreaView, StyleSheet, View } from 'react-native'
+import { BlurView } from '@react-native-community/blur'
 import { useTheme } from '@/store/theme/hook'
 import ImageBackground from '@/components/common/ImageBackground'
 import { useWindowSize } from '@/utils/hooks'
@@ -24,25 +24,6 @@ export default ({ children }: Props) => {
   const theme = useTheme()
   const windowSize = useWindowSize()
   const pic = useBgPic()
-  // const [wh, setWH] = useState<{ width: number | string, height: number | string }>({ width: '100%', height: Dimensions.get('screen').height })
-
-  // 固定宽高度 防止弹窗键盘时大小改变导致背景被缩放
-  // useEffect(() => {
-  //   const onChange = () => {
-  //     setWH({ width: '100%', height: '100%' })
-  //   }
-
-  //   const changeEvent = Dimensions.addEventListener('change', onChange)
-  //   return () => {
-  //     changeEvent.remove()
-  //   }
-  // }, [])
-  // const handleLayout = (e: LayoutChangeEvent) => {
-  //   // console.log('handleLayout', e.nativeEvent)
-  //   // console.log(Dimensions.get('screen'))
-  //   setWH({ width: e.nativeEvent.layout.width, height: Dimensions.get('screen').height })
-  // }
-  // console.log('render page content')
 
   const themeComponent = useMemo(() => (
     <View style={{ flex: 1, overflow: 'hidden' }}>
@@ -51,15 +32,25 @@ export default ({ children }: Props) => {
         source={theme['bg-image']}
         resizeMode="cover"
       />
-      <View
-        pointerEvents="none"
-        style={[
-          StyleSheet.absoluteFill,
-          {
-            backgroundColor: theme['c-main-background'],
-          },
-        ]}
-      />
+      {Platform.OS === 'ios' ? (
+        <BlurView
+          style={StyleSheet.absoluteFill}
+          blurType="systemMaterial"
+          blurAmount={35}
+          reducedTransparencyFallbackColor={theme['c-main-background']}
+        />
+      ) : (
+        <View
+          pointerEvents="none"
+          style={[
+            StyleSheet.absoluteFill,
+            {
+              backgroundColor: theme['c-main-background'],
+              opacity: 0.7,
+            },
+          ]}
+        />
+      )}
       <ContentContainer>
         <View style={{ flex: 1, flexDirection: 'column' }}>
           {children}
@@ -67,6 +58,7 @@ export default ({ children }: Props) => {
       </ContentContainer>
     </View>
   ), [children, theme, windowSize.height, windowSize.width])
+
   const picComponent = useMemo(() => {
     return (
       <View style={{ flex: 1, overflow: 'hidden' }}>
@@ -74,18 +66,26 @@ export default ({ children }: Props) => {
           style={{ position: 'absolute', left: 0, top: 0, height: windowSize.height, width: windowSize.width, backgroundColor: theme['c-content-background'] }}
           source={{ uri: pic!, headers: defaultHeaders }}
           resizeMode="cover"
-          blurRadius={BLUR_RADIUS}
         />
-        <View
-          pointerEvents="none"
-          style={[
-            StyleSheet.absoluteFill,
-            {
-              backgroundColor: theme['c-content-background'],
-              opacity: 0.76,
-            },
-          ]}
-        />
+        {Platform.OS === 'ios' ? (
+          <BlurView
+            style={StyleSheet.absoluteFill}
+            blurType="systemMaterial"
+            blurAmount={30}
+            reducedTransparencyFallbackColor={theme['c-content-background']}
+          />
+        ) : (
+          <View
+            pointerEvents="none"
+            style={[
+              StyleSheet.absoluteFill,
+              {
+                backgroundColor: theme['c-content-background'],
+                opacity: 0.6,
+              },
+            ]}
+          />
+        )}
         <ContentContainer>
           <View style={{ flex: 1, flexDirection: 'column' }}>
             {children}
