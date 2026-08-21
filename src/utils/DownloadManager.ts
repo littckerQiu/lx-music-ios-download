@@ -3,8 +3,11 @@
  * 复用播放器的链接获取逻辑，顺序下载避免限流
  */
 import RNFS from 'react-native-fs'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { getMusicUrlInfo, getLyricInfo, getPicUrl } from '@/core/music/online'
 import { requestMsg } from '@/utils/message'
+
+const STORAGE_KEY = 'lx_music_download_tasks'
 
 export type DownloadStatus = 'waiting' | 'preparing' | 'downloading' | 'paused' | 'completed' | 'failed' | 'cancelled'
 
@@ -47,6 +50,45 @@ const ensureDir = async () => {
 
 const notify = () => {
   listeners.forEach(l => l([...tasks]))
+  saveTasks()
+}
+
+let saveTimer: any = null
+const saveTasks = () => {
+  if (saveTimer) clearTimeout(saveTimer)
+  saveTimer = setTimeout(() => {
+    try {
+      // 只保存必要信息，不保存临时状态
+      const tasksToSave = tasks.map(t => ({
+        ...t,
+        status: (t.status === 'downloading' || t.status === 'preparing') ? 'waiting' : t.status,
+      }))
+      void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(tasksToSave))
+    } catch (e) {
+      console.log('save download tasks failed:', e)
+    }
+  }, 500)
+}
+
+export const loadTasks = async () => {
+  try {
+    const data = await AsyncStorage.getItem(STORAGE_KEY)
+    if (data) {
+      const loaded = JSON.parse(data)
+      tasks = loaded.map((t: DownloadTask) => ({
+        ...t,
+        status: (t.status === 'downloading' || t.status === 'preparing') ? 'waiting' : t.status,
+      }))
+      notify()
+      // 恢复等待中的任务
+      const waitingTasks = tasks.filter(t => t.status === 'waiting')
+      if (waitingTasks.length) {
+        setTimeout(() => processQueue(), 1000)
+      }
+    }
+  } catch (e) {
+    console.log('load download tasks failed:', e)
+  }
 }
 
 const getTask = (id: string) => tasks.find(t => t.id === id)

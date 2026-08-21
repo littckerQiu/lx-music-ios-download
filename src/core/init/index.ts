@@ -60,6 +60,11 @@ export default async() => {
   await initCommonState(setting)
   bootLog('Common State inited.')
 
+  // 加载下载任务
+  const { loadTasks } = await import('@/utils/DownloadManager')
+  void loadTasks()
+  bootLog('Download tasks loaded.')
+
   void initSync(setting)
   bootLog('Sync inited.')
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react'
+import React, { useEffect, useState, useMemo } from 'react'
 import { View, FlatList, TouchableOpacity, Alert, StyleSheet } from 'react-native'
 import Text from '@/components/common/Text'
 import Button from '@/components/common/Button'
@@ -8,21 +8,33 @@ import PageContent from '@/components/PageContent'
 import StatusBar from '@/components/common/StatusBar'
 import PlayerBar from '@/components/player/PlayerBar'
 import { pop } from '@/navigation'
-import commonState from '@/store/common/state'
 import { createStyle } from '@/utils/tools'
 import { useI18n } from '@/lang'
 import { COMPONENT_IDS } from '@/config/constant'
 import { setComponentId } from '@/core/common'
+import { handlePlay } from '@/components/OnlineList/listAction'
+import { Icon } from '@/components/common/Icon'
+import { scaleSizeH } from '@/utils/pixelRatio'
 
 interface Props {
   componentId: string
 }
 
+type FilterType = 'downloading' | 'failed' | 'completed'
+
+const CATEGORIES: { key: FilterType; label: string }[] = [
+  { key: 'downloading', label: '下载中' },
+  { key: 'failed', label: '下载失败' },
+  { key: 'completed', label: '下载完成' },
+]
+
+const ITEM_HEIGHT = scaleSizeH(40)
+
 const DownloadScreen: React.FC<Props> = ({ componentId }) => {
   const theme = useTheme()
   const t = useI18n()
   const [tasks, setTasks] = useState<DownloadTask[]>([])
-  const [filter, setFilter] = useState<'all' | 'downloading' | 'completed' | 'failed'>('all')
+  const [activeFilter, setActiveFilter] = useState<FilterType>('downloading')
 
   useEffect(() => {
     setComponentId(COMPONENT_IDS.download, componentId)
@@ -32,17 +44,23 @@ const DownloadScreen: React.FC<Props> = ({ componentId }) => {
   }, [componentId])
 
   const filteredTasks = useMemo(() => {
-    switch (filter) {
+    switch (activeFilter) {
       case 'downloading':
-        return tasks.filter(t => t.status === 'downloading' || t.status === 'preparing' || t.status === 'waiting')
-      case 'completed':
-        return tasks.filter(t => t.status === 'completed')
+        return tasks.filter(t => t.status === 'downloading' || t.status === 'preparing' || t.status === 'waiting' || t.status === 'paused')
       case 'failed':
         return tasks.filter(t => t.status === 'failed')
+      case 'completed':
+        return tasks.filter(t => t.status === 'completed')
       default:
-        return tasks
+        return []
     }
-  }, [tasks, filter])
+  }, [tasks, activeFilter])
+
+  const counts = useMemo(() => ({
+    downloading: tasks.filter(t => t.status === 'downloading' || t.status === 'preparing' || t.status === 'waiting' || t.status === 'paused').length,
+    failed: tasks.filter(t => t.status === 'failed').length,
+    completed: tasks.filter(t => t.status === 'completed').length,
+  }), [tasks])
 
   const getStatusText = (task: DownloadTask) => {
     switch (task.status) {
@@ -51,8 +69,7 @@ const DownloadScreen: React.FC<Props> = ({ componentId }) => {
       case 'downloading': return `下载中 ${(task.progress * 100).toFixed(1)}%`
       case 'paused': return '已暂停'
       case 'completed': return '已完成'
-      case 'failed': return `失败: ${task.errorMessage || '未知错误'}`
-      case 'cancelled': return '已取消'
+      case 'failed': return task.errorMessage || '下载失败'
       default: return task.status
     }
   }
@@ -64,6 +81,12 @@ const DownloadScreen: React.FC<Props> = ({ componentId }) => {
       case 'downloading':
       case 'preparing': return theme['c-primary']
       default: return theme['c-text-secondary']
+    }
+  }
+
+  const handleTaskPress = (task: DownloadTask) => {
+    if (task.status === 'completed') {
+      handlePlay(task.musicInfo)
     }
   }
 
@@ -92,63 +115,73 @@ const DownloadScreen: React.FC<Props> = ({ componentId }) => {
     void pop(componentId)
   }
 
-  const renderItem = ({ item }: { item: DownloadTask }) => (
-    <View style={[styles.taskItem, { backgroundColor: theme['c-content-background'] }]}>
-      <View style={styles.taskInfo}>
-        <Text style={styles.songName} color={theme['c-text']} numberOfLines={1}>{item.musicInfo.name}</Text>
-        <Text style={styles.artist} color={theme['c-text-secondary']} numberOfLines={1}>
-          {item.musicInfo.meta.author || '未知艺术家'}
+  const renderCategoryItem = ({ item }: { item: typeof CATEGORIES[0] }) => {
+    const active = activeFilter === item.key
+    const count = counts[item.key]
+    return (
+      <TouchableOpacity
+        style={[styles.categoryItem, { height: ITEM_HEIGHT }, active && { backgroundColor: theme['c-primary-light-700-alpha-300'] }]}
+        onPress={() => setActiveFilter(item.key)}
+      >
+        {active ? <Icon style={styles.categoryIcon} name="chevron-right" size={12} color={theme['c-primary-font']} /> : null}
+        <Text style={styles.categoryText} color={active ? theme['c-primary-font'] : theme['c-font']} numberOfLines={1}>
+          {item.label}({count})
         </Text>
-        <Text style={[styles.status, { color: getStatusColor(item) }]} numberOfLines={1}>
-          {getStatusText(item)}
-        </Text>
-        {(item.status === 'downloading' || item.status === 'preparing') && (
-          <View style={[styles.progressBar, { backgroundColor: theme['c-border-background'] }]}>
-            <View style={[styles.progressFill, { width: `${item.progress * 100}%`, backgroundColor: theme['c-primary'] }]} />
-          </View>
-        )}
-      </View>
-      <View style={styles.actions}>
-        {(item.status === 'downloading' || item.status === 'preparing' || item.status === 'waiting') && (
-          <TouchableOpacity onPress={() => handleAction(item)} style={styles.actionBtn}>
-            <Text color={theme['c-primary']}>暂停</Text>
-          </TouchableOpacity>
-        )}
-        {item.status === 'paused' && (
-          <TouchableOpacity onPress={() => handleAction(item)} style={styles.actionBtn}>
-            <Text color={theme['c-primary']}>继续</Text>
-          </TouchableOpacity>
-        )}
-        {item.status === 'failed' && (
-          <TouchableOpacity onPress={() => handleAction(item)} style={styles.actionBtn}>
-            <Text color={theme['c-primary']}>重试</Text>
-          </TouchableOpacity>
-        )}
-        <TouchableOpacity onPress={() => handleDelete(item)} style={styles.actionBtn}>
-          <Text color="#ff6b6b">删除</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  )
-
-  const stats = {
-    all: tasks.length,
-    downloading: tasks.filter(t => t.status === 'downloading' || t.status === 'preparing' || t.status === 'waiting').length,
-    completed: tasks.filter(t => t.status === 'completed').length,
-    failed: tasks.filter(t => t.status === 'failed').length,
+      </TouchableOpacity>
+    )
   }
 
-  const filters: { key: typeof filter; label: string; count: number }[] = [
-    { key: 'all', label: '全部', count: stats.all },
-    { key: 'downloading', label: '下载中', count: stats.downloading },
-    { key: 'completed', label: '已完成', count: stats.completed },
-    { key: 'failed', label: '失败', count: stats.failed },
-  ]
+  const renderTaskItem = ({ item }: { item: DownloadTask }) => {
+    const isCompleted = item.status === 'completed'
+    return (
+      <TouchableOpacity
+        style={[styles.taskItem, { backgroundColor: theme['c-content-background'] }]}
+        onPress={() => handleTaskPress(item)}
+        disabled={!isCompleted}
+      >
+        <View style={styles.taskInfo}>
+          <Text style={styles.songName} color={theme['c-text']} numberOfLines={1}>
+            {isCompleted ? '▶ ' : ''}{item.musicInfo.name}
+          </Text>
+          <Text style={styles.artist} color={theme['c-text-secondary']} numberOfLines={1}>
+            {item.musicInfo.meta.author || '未知艺术家'}
+          </Text>
+          <Text style={[styles.status, { color: getStatusColor(item) }]} numberOfLines={1}>
+            {getStatusText(item)}
+          </Text>
+          {(item.status === 'downloading' || item.status === 'preparing') && (
+            <View style={[styles.progressBar, { backgroundColor: theme['c-border-background'] }]}>
+              <View style={[styles.progressFill, { width: `${item.progress * 100}%`, backgroundColor: theme['c-primary'] }]} />
+            </View>
+          )}
+        </View>
+        <View style={styles.actions}>
+          {(item.status === 'downloading' || item.status === 'preparing' || item.status === 'waiting') && (
+            <TouchableOpacity onPress={() => handleAction(item)} style={styles.actionBtn}>
+              <Text color={theme['c-primary']}>暂停</Text>
+            </TouchableOpacity>
+          )}
+          {item.status === 'paused' && (
+            <TouchableOpacity onPress={() => handleAction(item)} style={styles.actionBtn}>
+              <Text color={theme['c-primary']}>继续</Text>
+            </TouchableOpacity>
+          )}
+          {item.status === 'failed' && (
+            <TouchableOpacity onPress={() => handleAction(item)} style={styles.actionBtn}>
+              <Text color={theme['c-primary']}>重试</Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity onPress={() => handleDelete(item)} style={styles.actionBtn}>
+            <Text color="#ff6b6b">删除</Text>
+          </TouchableOpacity>
+        </View>
+      </TouchableOpacity>
+    )
+  }
 
   return (
     <PageContent>
       <StatusBar />
-      {/* 顶栏 */}
       <View style={[styles.header, { borderBottomColor: theme['c-border-background'] }]}>
         <Button onPress={handleBack} style={styles.headerBtn}>
           <Text color={theme['c-button-font']}>{t('back')}</Text>
@@ -157,53 +190,49 @@ const DownloadScreen: React.FC<Props> = ({ componentId }) => {
         <View style={styles.headerBtn} />
       </View>
 
-      {/* 筛选栏 */}
-      <View style={styles.filterBar}>
-        {filters.map(f => (
-          <TouchableOpacity
-            key={f.key}
-            onPress={() => setFilter(f.key)}
-            style={[styles.filterBtn, filter === f.key && { backgroundColor: theme['c-primary'] }]}
-          >
-            <Text color={filter === f.key ? '#fff' : theme['c-text']}>
-              {f.label}({f.count})
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      <View style={styles.body}>
+        <View style={[styles.sidebar, { borderRightColor: theme['c-border-background'] }]}>
+          <FlatList
+            data={CATEGORIES}
+            renderItem={renderCategoryItem}
+            keyExtractor={item => item.key}
+            showsVerticalScrollIndicator={false}
+          />
+        </View>
 
-      {/* 任务列表 */}
-      <FlatList
-        data={filteredTasks}
-        renderItem={renderItem}
-        keyExtractor={item => item.id}
-        contentContainerStyle={styles.listContent}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text color={theme['c-text-secondary']}>暂无下载任务</Text>
+        <View style={styles.content}>
+          <FlatList
+            data={filteredTasks}
+            renderItem={renderTaskItem}
+            keyExtractor={item => item.id}
+            contentContainerStyle={styles.listContent}
+            ListEmptyComponent={
+              <View style={styles.empty}>
+                <Text color={theme['c-text-secondary']}>暂无{activeFilter === 'downloading' ? '下载中' : activeFilter === 'failed' ? '失败' : '已完成'}的任务</Text>
+              </View>
+            }
+          />
+
+          <View style={[styles.bottomBar, { borderTopColor: theme['c-border-background'] }]}>
+            <TouchableOpacity onPress={() => DownloadManager.pauseAll()} style={styles.bottomBtn}>
+              <Text color={theme['c-primary']}>全部暂停</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => DownloadManager.resumeAll()} style={styles.bottomBtn}>
+              <Text color={theme['c-primary']}>全部开始</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => {
+                Alert.alert('清除记录', '确定清除所有已完成的下载记录？', [
+                  { text: '取消', style: 'cancel' },
+                  { text: '确定', onPress: () => DownloadManager.clearCompleted() },
+                ])
+              }}
+              style={styles.bottomBtn}
+            >
+              <Text color={theme['c-primary']}>清除记录</Text>
+            </TouchableOpacity>
           </View>
-        }
-      />
-
-      {/* 底部操作栏 */}
-      <View style={[styles.bottomBar, { borderTopColor: theme['c-border-background'] }]}>
-        <TouchableOpacity onPress={() => DownloadManager.pauseAll()} style={styles.bottomBtn}>
-          <Text color={theme['c-primary']}>全部暂停</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => DownloadManager.resumeAll()} style={styles.bottomBtn}>
-          <Text color={theme['c-primary']}>全部开始</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => {
-            Alert.alert('清除记录', '确定清除所有已完成的下载记录？', [
-              { text: '取消', style: 'cancel' },
-              { text: '确定', onPress: () => DownloadManager.clearCompleted() },
-            ])
-          }}
-          style={styles.bottomBtn}
-        >
-          <Text color={theme['c-primary']}>清除记录</Text>
-        </TouchableOpacity>
+        </View>
       </View>
 
       <PlayerBar />
@@ -230,60 +259,74 @@ const styles = createStyle({
     fontSize: 17,
     fontWeight: '500',
   },
-  filterBar: {
-    flexDirection: 'row',
-    padding: 10,
-    gap: 8,
-  },
-  filterBtn: {
+  body: {
     flex: 1,
-    paddingVertical: 8,
+    flexDirection: 'row',
+  },
+  sidebar: {
+    width: 120,
+    borderRightWidth: StyleSheet.hairlineWidth,
+    paddingTop: 8,
+  },
+  categoryItem: {
+    flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 6,
+    paddingHorizontal: 12,
+  },
+  categoryIcon: {
+    marginRight: 6,
+  },
+  categoryText: {
+    fontSize: 14,
+    flex: 1,
+  },
+  content: {
+    flex: 1,
   },
   listContent: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
+    paddingTop: 8,
     paddingBottom: 20,
     flexGrow: 1,
   },
   taskItem: {
     flexDirection: 'row',
-    padding: 12,
+    padding: 10,
     borderRadius: 8,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   taskInfo: {
     flex: 1,
   },
   songName: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '500',
   },
   artist: {
-    fontSize: 12,
+    fontSize: 11,
     marginTop: 2,
   },
   status: {
-    fontSize: 12,
-    marginTop: 4,
+    fontSize: 11,
+    marginTop: 3,
   },
   progressBar: {
-    height: 3,
-    borderRadius: 2,
-    marginTop: 6,
+    height: 2,
+    borderRadius: 1,
+    marginTop: 4,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    borderRadius: 2,
+    borderRadius: 1,
   },
   actions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
   },
   actionBtn: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 6,
     paddingVertical: 4,
   },
   empty: {
@@ -296,7 +339,7 @@ const styles = createStyle({
   },
   bottomBtn: {
     flex: 1,
-    paddingVertical: 14,
+    paddingVertical: 12,
     alignItems: 'center',
   },
 })
