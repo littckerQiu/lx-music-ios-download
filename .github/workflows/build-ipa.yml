@@ -25,6 +25,15 @@ jobs:
           cd ios
           pod install
 
+      - name: Fix iOS SDK compatibility
+        run: |
+          FILE="node_modules/react-native-track-player/ios/RNTrackPlayer/LXEqualizerAudioMix.swift"
+          if [ -f "$FILE" ]; then
+            sed -i '' 's/var tap: Unmanaged<MTAudioProcessingTap>?/var tap: MTAudioProcessingTap?/' "$FILE"
+            sed -i '' 's/return tap?.takeRetainedValue()/return tap/' "$FILE"
+            echo "Fixed MTAudioProcessingTap type"
+          fi
+
       - name: Build IPA
         run: |
           cd ios
