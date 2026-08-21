@@ -4,6 +4,7 @@
  */
 import RNFS from 'react-native-fs'
 import { getMusicUrlInfo } from '@/core/music/online'
+import { requestMsg } from '@/utils/message'
 
 export type DownloadStatus = 'waiting' | 'preparing' | 'downloading' | 'paused' | 'completed' | 'failed' | 'cancelled'
 
@@ -63,20 +64,69 @@ const sanitizeFilename = (name: string) => {
   return name.replace(/[\\/:*?"<>|]/g, '_').slice(0, 100)
 }
 
+// 完全复刻播放器的 getMusicPlayUrl 逻辑
+const getMusicDownloadUrl = async(
+  musicInfo: LX.Music.MusicInfoOnline,
+  isRefresh = false,
+  isRetryed = false
+): Promise<{ url: string; quality: LX.Quality | null }> => {
+  const toggleMusicInfo = musicInfo.meta.toggleMusicInfo
+
+  // 第一步：先尝试 toggleMusicInfo（不切换音源）
+  const firstTry = toggleMusicInfo
+    ? getMusicUrlInfo({
+        musicInfo: toggleMusicInfo,
+        isRefresh,
+        allowToggleSource: false,
+      }).catch(() => {
+        // 失败后用原信息，允许切换音源
+        return getMusicUrlInfo({
+          musicInfo,
+          isRefresh,
+          allowToggleSource: true,
+          onToggleSource() {
+            console.log('download: toggle source try')
+          },
+        })
+      })
+    : getMusicUrlInfo({
+        musicInfo,
+        isRefresh,
+        allowToggleSource: true,
+        onToggleSource() {
+          console.log('download: toggle source try')
+        },
+      })
+
+  return firstTry.catch(async (err: any) => {
+    // tooManyRequests 延迟2-6秒重试
+    if (err.message == requestMsg.tooManyRequests) {
+      const time = 2 + Math.random() * 4
+      await new Promise(r => setTimeout(r, time * 1000))
+      return getMusicDownloadUrl(musicInfo, isRefresh, true)
+    }
+
+    // 第一次失败，再试一次
+    if (!isRetryed) {
+      return getMusicDownloadUrl(musicInfo, isRefresh, true)
+    }
+
+    // 第二次失败，如果不是刷新模式，用 isRefresh=true 再试一次（刷新过期url）
+    if (!isRefresh) {
+      return getMusicDownloadUrl(musicInfo, true, true)
+    }
+
+    throw err
+  })
+}
+
 const getUrlWithTimeout = (musicInfo: LX.Music.MusicInfoOnline): Promise<{ url: string; quality: LX.Quality | null }> => {
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
       reject(new Error('获取链接超时'))
     }, URL_TIMEOUT)
 
-    const toggleMusicInfo = musicInfo.meta.toggleMusicInfo
-    const urlPromise = toggleMusicInfo
-      ? getMusicUrlInfo({ musicInfo: toggleMusicInfo, isRefresh: false, allowToggleSource: false }).catch(() =>
-          getMusicUrlInfo({ musicInfo, isRefresh: false })
-        )
-      : getMusicUrlInfo({ musicInfo, isRefresh: false })
-
-    urlPromise.then(result => {
+    getMusicDownloadUrl(musicInfo).then(result => {
       clearTimeout(timeout)
       resolve(result)
     }).catch(err => {
